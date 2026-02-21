@@ -1,0 +1,24 @@
+services:
+  deepstack:
+    image: deepquestai/deepstack
+    ports:
+      - "5050:5000"
+    volumes:
+      - ./modelstore:/modelstore
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - deepstack
+    environment:
+      DEEPSTACK_BASE_URL: http://deepstack:5000
+      DEEPSTACK_MODEL_NAME: FruitsRecognition
+      ENABLE_LOCAL_ONNX_FALLBACK: "true"
+      PORT: "81"
+      LOG_LEVEL: INFO
+    ports:
+      - "81:81"
+    restart: unless-stopped

@@ -1,0 +1,192 @@
+import os
+import sys
+from pathlib import Path
+
+import requests
+
+
+BASE_DIR = Path(__file__).resolve().parent
+DEEPSTACK_BASE_URL = os.getenv("DEEPSTACK_BASE_URL", "http://localhost:5050").rstrip("/")
+DEEPSTACK_MODEL_NAME = os.getenv("DEEPSTACK_MODEL_NAME", "FruitsRecognition")
+APP_BASE_URL = os.getenv("APP_BASE_URL", "http://localhost:81").rstrip("/")
+REQUEST_TIMEOUT_SECONDS = 30
+
+
+def fail(message):
+    print(f"[FAIL] {message}")
+    sys.exit(1)
+
+
+def post_deepstack(path, **kwargs):
+    url = f"{DEEPSTACK_BASE_URL}{path}"
+    try:
+        response = requests.post(url, timeout=REQUEST_TIMEOUT_SECONDS, **kwargs)
+    except requests.RequestException as exc:
+        fail(f"Cannot connect to DeepStack at {url}: {exc}")
+
+    return response
+
+
+def post_app(path, **kwargs):
+    url = f"{APP_BASE_URL}{path}"
+    try:
+        response = requests.post(url, timeout=REQUEST_TIMEOUT_SECONDS, **kwargs)
+    except requests.RequestException as exc:
+        fail(f"Cannot connect to Flask app at {url}: {exc}")
+
+    return response
+
+
+def parse_json_or_none(response):
+    try:
+        return response.json()
+    except ValueError:
+        return None
+
+
+def extract_top_prediction(payload):
+    if not isinstance(payload, dict):
+        return None
+
+    # DeepStack style: {"label": "...", "confidence": 0.9}
+    if "label" in payload and "confidence" in payload:
+        return {
+            "label": payload.get("label", "Unknown"),
+            "confidence": payload.get("confidence", "N/A"),
+        }
+
+    # DeepStack/Flask list style: {"predictions": [...]}
+    predictions = payload.get("predictions")
+    if isinstance(predictions, list) and predictions:
+        top_prediction = max(
+            predictions,
+            key=lambda prediction: prediction.get("confidence", 0),
+        )
+        return {
+            "label": top_prediction.get("label", "Unknown"),
+            "confidence": top_prediction.get("confidence", "N/A"),
+        }
+
+    # Flask API style: {"success": true, "data": {...}}
+    data = payload.get("data")
+    if isinstance(data, dict):
+        if "fruit" in data and "confidence" in data:
+            return {
+                "label": data.get("fruit", "Unknown"),
+                "confidence": data.get("confidence", "N/A"),
+            }
+
+        predictions = data.get("predictions")
+        if isinstance(predictions, list) and predictions:
+            top_prediction = max(
+                predictions,
+                key=lambda prediction: prediction.get("confidence", 0),
+            )
+            return {
+                "label": top_prediction.get("label", "Unknown"),
+                "confidence": top_prediction.get("confidence", "N/A"),
+            }
+
+    return None
+
+
+def ensure_model_registered():
+    list_response = post_deepstack("/v1/vision/listmodels")
+    list_payload = parse_json_or_none(list_response)
+
+    if list_response.status_code != 200 or not isinstance(list_payload, dict):
+        fail(
+            f"DeepStack listmodels failed (status={list_response.status_code}). "
+            f"Response: {list_response.text[:300]}"
+        )
+
+    models = list_payload.get("models", [])
+    model_names = {item.get("name") for item in models if isinstance(item, dict)}
+    if DEEPSTACK_MODEL_NAME in model_names:
+        print(f"[OK] Model '{DEEPSTACK_MODEL_NAME}' is already registered.")
+        return
+
+    model_path = BASE_DIR / "Fruits.onnx"
+    config_path = BASE_DIR / "config.json"
+    if not model_path.exists() or not config_path.exists():
+        fail("Model files are missing. Expected Fruits.onnx and config.json in project root.")
+
+    with model_path.open("rb") as model_file, config_path.open("rb") as config_file:
+        add_response = post_deepstack(
+            "/v1/vision/addmodel",
+            files={
+                "model": ("Fruits.onnx", model_file, "application/octet-stream"),
+                "config": ("config.json", config_file, "application/json"),
+            },
+            data={"name": DEEPSTACK_MODEL_NAME},
+        )
+
+    add_payload = parse_json_or_none(add_response)
+    if add_response.status_code != 200 or not isinstance(add_payload, dict) or not add_payload.get("success"):
+        fail(
+            f"Could not register model (status={add_response.status_code}). "
+            f"Response: {add_response.text[:300]}"
+        )
+
+    print(f"[OK] Model '{DEEPSTACK_MODEL_NAME}' registered.")
+
+
+def run_prediction():
+    image_path = BASE_DIR / "static" / "img" / "fruits.jpg"
+    if not image_path.exists():
+        fail(f"Image not found: {image_path}")
+
+    with image_path.open("rb") as image_file:
+        prediction_response = post_deepstack(
+            f"/v1/vision/custom/{DEEPSTACK_MODEL_NAME}",
+            files={"image": ("fruits.jpg", image_file, "image/jpeg")},
+        )
+
+    prediction_payload = parse_json_or_none(prediction_response)
+    print("status:", prediction_response.status_code)
+
+    if prediction_response.status_code == 200:
+        top_prediction = extract_top_prediction(prediction_payload)
+        if top_prediction:
+            print("[OK] DeepStack custom endpoint prediction succeeded.")
+            print("label:", top_prediction["label"])
+            print("confidence:", top_prediction["confidence"])
+            return
+
+    if prediction_response.status_code == 404:
+        print(
+            "[WARN] DeepStack custom endpoint returned 404. "
+            "Trying Flask /api/predict (local ONNX fallback path)..."
+        )
+        with image_path.open("rb") as image_file:
+            app_response = post_app(
+                "/api/predict",
+                files={"file": ("fruits.jpg", image_file, "image/jpeg")},
+            )
+
+        app_payload = parse_json_or_none(app_response)
+        print("flask_status:", app_response.status_code)
+
+        if app_response.status_code == 200 and isinstance(app_payload, dict) and app_payload.get("success"):
+            top_prediction = extract_top_prediction(app_payload)
+            if top_prediction:
+                fallback_flag = app_payload.get("fallback", False)
+                if fallback_flag:
+                    print("[OK] Flask prediction succeeded using local ONNX fallback.")
+                else:
+                    print("[OK] Flask prediction succeeded.")
+                print("label:", top_prediction["label"])
+                print("confidence:", top_prediction["confidence"])
+                return
+
+        fail(
+            "DeepStack custom endpoint is unavailable and Flask fallback prediction failed. "
+            f"Flask response: {app_response.text[:500]}"
+        )
+
+    fail(f"Prediction failed. Response: {prediction_response.text[:500]}")
+
+
+if __name__ == "__main__":
+    ensure_model_registered()
+    run_prediction()

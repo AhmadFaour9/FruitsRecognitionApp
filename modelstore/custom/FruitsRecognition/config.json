@@ -1,0 +1,15 @@
+{"sys-version": "1.0",
+    "framework":"ONNX",
+    "mean":0.5,
+    "std":255,
+    "width":224,
+    "height":224,
+    "map": {
+        "0" : "Apple",
+        "2" : "Mango",
+        "3" : "Orange",
+        "1" : "Banana",
+        "4" : "Strawberry",
+        "5" : "Tomato",
+        "6" : "Watermelon"
+    }}

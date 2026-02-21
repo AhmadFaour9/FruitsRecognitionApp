@@ -1,70 +1,169 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
-
-
-    <!--<link rel="stylesheet" href="../static/css/style.css">-->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" type="text/css"/>
-    <link href="https://fonts.googleapis.com/css?family=Poppins:100,300,400,600,700,800,800i" rel="stylesheet">
-    <link rel="shortcut icon" type="image/png" href="../static/img/deepstacklogo.png">
-    
-  
-    <title>Deepstack Demo</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Fruits Recognition Dashboard</title>
+    <meta name="description" content="Modern DeepStack Fruits Recognition dashboard powered by Flask.">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/deepstacklogo.png') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-SgOJa3DmI69IUzQ2PVdRZhwQ+dy64/BUtbMJw1MZ8t5HZApcHrRKUc4W0kG879m7" crossorigin="anonymous">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <div class="container marketing">
+    <div class="ambient-shape shape-one"></div>
+    <div class="ambient-shape shape-two"></div>
 
-    <!--Body-->
-    <div class="canvas">
-        <!--Main text-->
-        <div class="main-text">
-        <h2><span class="heading-text" >Deepstack</span><br> <br>
-            <i>Fruits Recognition API Demo</i><br>
-            <hr>
-            <span class="body-text">This is an image classification demo showing how
-                DeepStack can be used to deploy Machine Learning models both in the Cloud and on Premise.
-                The model is able to detect seven classes which includes <span class="body-text-highlight">Apple</span>, <span class="body-text-highlight">Banana</span>, <span class="body-text-highlight">Mango</span>,
-                <span class="body-text-highlight">Orange</span>, <span class="body-text-highlight">Strawberry</span>, <span class="body-text-highlight">Tomato</span>, and <span class="body-text-highlight">Watermelon</span>. </span></h2>
+    <header class="app-header py-3">
+        <div class="container d-flex justify-content-between align-items-center">
+            <div class="brand-wrap d-flex align-items-center gap-2">
+                <img src="{{ url_for('static', filename='img/deepstacklogo.png') }}" alt="DeepStack" width="28" height="28">
+                <div>
+                    <div class="brand-title">Fruits Recognition</div>
+                    <div class="brand-subtitle">DeepStack + Flask Dashboard</div>
+                </div>
+            </div>
+            <button id="themeToggle" type="button" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-moon-stars"></i>
+                <span class="ms-1">Dark Mode</span>
+            </button>
         </div>
-        <!--/Main text-->
-        <!--Main Image-->
-        <div class="main-image">
-            <img id="trynowpreview" src="{{ preview_image }}" alt="Image recognition" class="image-display">
+    </header>
 
-        {% block content %}
-        {% endblock %}
-        <!--/form-->
+    <main class="container pb-5">
+        <div class="row g-4 align-items-start">
+            <div class="col-lg-5">
+                <section class="card app-card upload-card border-0 shadow-lg">
+                    <div class="card-body p-4">
+                        <p class="eyebrow mb-2">Upload & Analyze</p>
+                        <h1 class="h4 fw-bold mb-2">Drop your fruit image here</h1>
+                        <p class="text-muted small mb-3">
+                            Model: <strong>{{ model_name }}</strong> |
+                            DeepStack: <code>{{ deepstack_base_url }}</code>
+                        </p>
+
+                        <div id="dropZone" class="drop-zone">
+                            <input id="imageInput" type="file" class="d-none" accept="image/*">
+                            <i class="bi bi-cloud-arrow-up drop-icon"></i>
+                            <h2 class="h6 mt-2 mb-1">Drag and drop image</h2>
+                            <p class="small text-muted mb-3">or click to browse from your device</p>
+                            <button id="browseBtn" type="button" class="btn btn-outline-primary btn-sm">Browse Image</button>
+                        </div>
+
+                        <div id="previewWrapper" class="preview-wrapper d-none mt-3">
+                            <img id="previewImage" src="{{ url_for('static', filename='img/strawberry.jpg') }}" alt="Uploaded preview">
+                        </div>
+
+                        <div class="d-flex gap-2 mt-4">
+                            <button id="analyzeBtn" type="button" class="btn btn-primary flex-fill" disabled>
+                                <i class="bi bi-cpu"></i>
+                                <span class="ms-1">Analyze Fruit</span>
+                            </button>
+                            <button id="resetBtn" type="button" class="btn btn-outline-secondary">Reset</button>
+                        </div>
+
+                        <div class="small text-muted mt-3">
+                            Allowed formats: {{ allowed_extensions|join(', ') }} |
+                            Max upload: {{ max_upload_mb }}MB
+                        </div>
+                        <div id="statusBanner" class="mt-3"></div>
+                    </div>
+                </section>
+            </div>
+
+            <div class="col-lg-7">
+                <section id="resultCard" class="card app-card result-card border-0 shadow-lg d-none">
+                    <div class="card-body p-4">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div>
+                                <p class="eyebrow mb-1">Prediction Result</p>
+                                <h3 id="fruitName" class="fruit-title mb-1">No result yet</h3>
+                            </div>
+                            <span id="confidenceBadge" class="badge rounded-pill text-bg-secondary">Waiting</span>
+                        </div>
+
+                        <div class="row g-3 align-items-center">
+                            <div class="col-md-5">
+                                <img id="resultImage" class="result-image" src="{{ url_for('static', filename='img/strawberry.jpg') }}" alt="Analyzed image">
+                            </div>
+                            <div class="col-md-7">
+                                <div class="d-flex justify-content-between small mb-2">
+                                    <span class="fw-semibold">AI Confidence</span>
+                                    <span id="confidenceText">0%</span>
+                                </div>
+                                <div class="progress confidence-progress mb-3">
+                                    <div id="confidenceBar" class="progress-bar" role="progressbar" style="width:0%"></div>
+                                </div>
+                                <p id="confidenceExplanation" class="text-muted small mb-0">
+                                    Confidence insight will appear after prediction.
+                                </p>
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h4 class="h6 fw-bold mb-0">Top Predictions</h4>
+                            <button id="downloadJsonBtn" type="button" class="btn btn-outline-primary btn-sm" disabled>
+                                <i class="bi bi-download"></i>
+                                <span class="ms-1">Download JSON</span>
+                            </button>
+                        </div>
+
+                        <ul id="predictionsList" class="list-group list-group-flush mt-3"></ul>
+                        <canvas id="probabilityChart" class="mt-3" height="120"></canvas>
+                    </div>
+                </section>
+
+                <section class="card app-card border-0 shadow-sm mt-4">
+                    <div class="card-body p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h4 class="h6 fw-bold mb-0">Recent Predictions</h4>
+                            <button id="clearHistoryBtn" type="button" class="btn btn-outline-danger btn-sm">
+                                <i class="bi bi-trash"></i>
+                                <span class="ms-1">Clear</span>
+                            </button>
+                        </div>
+                        <div id="historyEmpty" class="small text-muted py-2">No predictions yet.</div>
+                        <ul id="historyList" class="list-group list-group-flush"></ul>
+                    </div>
+                </section>
+            </div>
         </div>
-        <!--/Main Image-->
-    </div>
-    <!--Footer-->
-  <div class="row px-4">
-    <div class="col-md-7">
-        <ul class="nav">
-            <li class="nav-item">
-              <a class="nav-link"  href="https://deepquestai.com/"><div class="text-primary">DeepQuest AI</div> </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="https://deepstack.cc/"><div class="text-primary">DeepStack</div> </a>
-            </li>
-        </ul>
-    </div>
-    <div class="col-md text-md-right">
-      <small class="text-primary p-3">&copy; 2019 DeepquestAI</small>
-    </div>
-  </div>
-<!--/Footer-->
-    <!--/body-->
+    </main>
 
+    <footer class="app-footer py-4">
+        <div class="container d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
+            <small>Powered by DeepStack custom vision API</small>
+            <small>Designed for FruitsRecognitionApp</small>
+        </div>
+    </footer>
+
+    <div id="loadingOverlay" class="loading-overlay d-none">
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-3 mb-0 fw-semibold">Analyzing image with AI...</p>
+        </div>
     </div>
 
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
-<script src="../static/js/actions.js"></script>
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="appToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-body" id="toastMessage"></div>
+        </div>
+    </div>
+
+    <script>
+        window.APP_CONFIG = {
+            deepstackBaseUrl: {{ deepstack_base_url|tojson }},
+            modelName: {{ model_name|tojson }},
+            maxUploadMb: {{ max_upload_mb|tojson }}
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js" integrity="sha384-k6d4wzSIapyDyv1kpU366/PK5hCdSbCRGRCMv+eplOQJWyd1fbcAu9OCUj5zNLiq" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script src="{{ url_for('static', filename='js/actions.js') }}"></script>
 </body>
 </html>
