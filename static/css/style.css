@@ -114,12 +114,16 @@ main,
     overflow: hidden;
     border: 1px solid var(--stroke);
     background: #fff;
+    padding: 0.5rem;
+    display: grid;
+    place-items: center;
 }
 
 .preview-wrapper img {
     width: 100%;
-    height: 210px;
-    object-fit: cover;
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
     display: block;
 }
 
@@ -131,10 +135,13 @@ main,
 
 .result-image {
     width: 100%;
-    height: 180px;
-    object-fit: cover;
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
     border-radius: 14px;
     border: 1px solid var(--stroke);
+    background: #fff;
+    padding: 0.5rem;
 }
 
 .confidence-progress {
@@ -225,12 +232,6 @@ body.theme-dark .loading-overlay {
     }
 }
 
-@media (max-width: 992px) {
-    .preview-wrapper img {
-        height: 180px;
-    }
-}
-
 @media (max-width: 576px) {
     .app-header .container {
         gap: 0.75rem;
@@ -238,9 +239,5 @@ body.theme-dark .loading-overlay {
 
     .brand-subtitle {
         display: none;
-    }
-
-    .result-image {
-        height: 160px;
     }
 }

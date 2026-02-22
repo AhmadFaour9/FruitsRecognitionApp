@@ -4,7 +4,23 @@ A modernized Flask + DeepStack fruits classification web app.
 
 This repository is an updated fork of the original project, with Dockerized deployment, UI/UX improvements, and robust fallback inference.
 
-![Dashboard](./Assets/Screenshot.png)
+## New UI Screenshots
+
+### Desktop
+
+![New Desktop Dashboard](./Assets/app-dashboard-desktop.png)
+
+### Upload Preview (After Image Selection)
+
+![Upload Preview](./Assets/app-upload-preview.png)
+
+### Prediction Result
+
+![Prediction Result](./Assets/app-prediction-result.png)
+
+### Mobile
+
+![New Mobile Dashboard](./Assets/app-dashboard-mobile.png)
 
 ## Current Status
 
